@@ -7,6 +7,6 @@ module "airflow" {
   database_host       = module.rds.endpoint
   database_name       = var.database_name
   database_user       = var.database_user
-  database_password   = var.database_password
+  database_password   = local.database_password
   depends_on          = [module.addons, module.efs, module.rds]
 }

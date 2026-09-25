@@ -127,8 +127,9 @@ database_password    = "change-me-before-apply"
 
 Important:
 
-- Do not commit real database secrets to version control.
-- The sample `database_password` in `dev.tfvars` is a placeholder and must be replaced.
+- Database credentials are now stored in AWS Secrets Manager by default.
+- If `database_password` is not supplied, Terraform generates a secure random password and stores it in the secret referenced by `database_secret_name`.
+- The `.tfvars` file should not contain a real secret value. Keep it as `null` unless you intentionally want to override the generated password.
 - If you are using a remote backend, uncomment and configure `terraform/backend.tf` before `terraform init`.
 
 ## Deployment
@@ -220,6 +221,7 @@ The configuration exposes several outputs from `terraform/outputs.tf`:
 - `vpc_id`
 - `rds_endpoint`
 - `efs_file_system_id`
+- `database_secret_arn`
 
 You can inspect them with:
 

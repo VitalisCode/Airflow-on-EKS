@@ -17,3 +17,7 @@ output "rds_endpoint" {
 output "efs_file_system_id" {
   value = module.efs.file_system_id
 }
+
+output "database_secret_arn" {
+  value = aws_secretsmanager_secret.database.arn
+}

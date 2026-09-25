@@ -8,6 +8,6 @@ module "rds" {
   allocated_storage      = var.rds_allocated_storage
   database_name          = var.database_name
   master_username        = var.database_user
-  master_password        = var.database_password
+  master_password        = local.database_password
   tags                   = local.common_tags
 }

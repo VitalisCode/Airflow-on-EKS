@@ -61,8 +61,18 @@ variable "database_user" {
 }
 
 variable "database_password" {
-  type      = string
-  sensitive = true
+  type        = string
+  description = "Optional override for the database password. If not set, a random password is generated and stored in AWS Secrets Manager."
+  sensitive   = true
+  default     = null
+  nullable    = true
+}
+
+variable "database_secret_name" {
+  type        = string
+  description = "Name of the Secrets Manager secret that stores the database password. Defaults to <cluster_name>-database-password."
+  default     = null
+  nullable    = true
 }
 
 variable "rds_instance_class" {
