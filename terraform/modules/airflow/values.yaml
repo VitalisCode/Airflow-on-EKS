@@ -1,0 +1,15 @@
+executor: KubernetesExecutor
+createUserJob:
+  useHelmHooks: false
+  applyCustomEnv: false
+webserver:
+  service:
+    type: ClusterIP
+scheduler:
+  replicas: 1
+triggerer:
+  enabled: true
+postgresql:
+  enabled: false
+redis:
+  enabled: false

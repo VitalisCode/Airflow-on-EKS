@@ -1,0 +1,76 @@
+name: Terraform Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform.yml'
+  pull_request:
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  validate:
+    name: Validate Terraform
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Terraform Format Check
+        run: terraform -chdir=terraform fmt -check -recursive
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform init -backend=false
+
+      - name: Terraform Validate
+        run: terraform -chdir=terraform validate
+
+  apply:
+    name: Apply Terraform
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION || 'eu-central-1' }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Terraform Init with backend
+        run: |
+          terraform -chdir=terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET || 'test' }}" \
+            -backend-config="key=airflow-on-eks/dev/terraform.tfstate" \
+            -backend-config="region=${{ secrets.AWS_REGION || 'eu-central-1' }}" \
+            -backend-config="dynamodb_table=${{ secrets.TF_LOCK_TABLE || 'terraform-lock' }}" \
+            -backend-config="encrypt=true"
+
+      - name: Terraform Plan
+        run: terraform -chdir=terraform plan -var-file=envs/dev.tfvars -lock=false
+
+      - name: Terraform Apply
+        run: terraform -chdir=terraform apply -auto-approve -var-file=envs/dev.tfvars -lock=false

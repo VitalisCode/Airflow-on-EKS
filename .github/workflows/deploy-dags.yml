@@ -1,0 +1,50 @@
+name: Deploy Airflow DAGs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'dags/**'
+      - '.github/workflows/deploy-dags.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  sync-dags:
+    name: Sync DAGs to Airflow scheduler
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION || 'eu-central-1' }}
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME || 'airflow-cluster' }} --region ${{ secrets.AWS_REGION || 'eu-central-1' }}
+
+      - name: Find Airflow scheduler pod
+        id: pod
+        run: |
+          POD_NAME=$(kubectl get pod -n ${{ secrets.AIRFLOW_NAMESPACE || 'airflow' }} -l component=scheduler -o jsonpath='{.items[0].metadata.name}')
+          if [ -z "$POD_NAME" ]; then
+            echo "No scheduler pod found in namespace ${{ secrets.AIRFLOW_NAMESPACE || 'airflow' }}" >&2
+            exit 1
+          fi
+          echo "pod_name=$POD_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Copy DAG files into Airflow pod
+        run: |
+          kubectl cp dags/. ${{ secrets.AIRFLOW_NAMESPACE || 'airflow' }}/${{ steps.pod.outputs.pod_name }}:/opt/airflow/dags/
+
+      - name: Restart scheduler for DAG discovery
+        run: |
+          kubectl rollout restart deployment/airflow-scheduler -n ${{ secrets.AIRFLOW_NAMESPACE || 'airflow' }} || true
+          kubectl rollout status deployment/airflow-scheduler -n ${{ secrets.AIRFLOW_NAMESPACE || 'airflow' }} --timeout=180s || true
